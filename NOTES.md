@@ -1,6 +1,6 @@
 ## To create a module in go
-$ go mod init example/hello
-	- initializes a go.mod files that tracks the dependencies requried for the the code
+$ go mod init example/hello \n
+	\t- initializes a go.mod files that tracks the dependencies requried for the the code
 
 $ go mod tidy
 	- if we add any packages we need to import them in go.mod file. Running above command will do that for us (It will download the requried dependencies)
