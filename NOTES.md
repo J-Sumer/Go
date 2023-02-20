@@ -1,3 +1,4 @@
+## To create a module in go
 $ go mod init example/hello
 	- initializes a go.mod files that tracks the dependencies requried for the the code
 
