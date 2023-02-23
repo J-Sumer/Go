@@ -559,7 +559,364 @@ for _, value := range pow
 ```
 If you only want the index, you can omit the second variable.
 
-for i := range pow
+``` for i := range pow ```
+
+# Complete this exercise
+
+https://go.dev/tour/moretypes/18
+
+### Maps
+
+m = make(map[<key type>]<Value type>)
+
+```
+type Vertex struct {
+	Lat, Long float64
+}
+
+var m map[string]Vertex
+
+func main() {
+	m = make(map[string]Vertex)
+	m["Bell Labs"] = Vertex{
+		40.68433, -74.39967,
+	}
+	fmt.Println(m["Bell Labs"])
+}
+```
+
+```
+type Vertex struct {
+	Lat, Long float64
+}
+
+var m = map[string]Vertex{
+	"Bell Labs": Vertex{
+		40.68433, -74.39967,
+	},
+	"Google": Vertex{
+		37.42202, -122.08408,
+	},
+}
+```
+
+```
+type Vertex struct {
+	Lat, Long float64
+}
+
+var m = map[string]Vertex{
+	"Bell Labs": {40.68433, -74.39967},
+	"Google":    {37.42202, -122.08408},
+}
+
+func main() {
+	fmt.Println(m)
+}
+```
+
+```
+func main() {
+	m := make(map[string]int)
+
+	m["Answer"] = 42
+	fmt.Println("The value:", m["Answer"])
+
+	m["Answer"] = 48
+	fmt.Println("The value:", m["Answer"])
+
+	delete(m, "Answer")
+	fmt.Println("The value:", m["Answer"])
+
+	v, ok := m["Answer"]
+	fmt.Println("The value:", v, "Present?", ok)
+}
+```
+
+Functions are values too. They can be passed around just like other values.
+
+Function values may be used as function arguments and return values.
+
+```
+func compute(fn func(float64, float64) float64) float64 {
+	return fn(3, 4)
+}
+
+func main() {
+	hypot := func(x, y float64) float64 {
+		return math.Sqrt(x*x + y*y)
+	}
+	fmt.Println(hypot(5, 12))
+
+	fmt.Println(compute(hypot))
+	fmt.Println(compute(math.Pow))
+}
+```
+
+### Function closures
+Go functions may be closures. A closure is a function value that references variables from outside its body. The function may access and assign to the referenced variables; in this sense the function is "bound" to the variables.
+
+For example, the adder function returns a closure. Each closure is bound to its own sum variable.
+
+```
+func adder() func(int) int {
+	sum := 0
+	return func(x int) int {
+		sum += x
+		return sum
+	}
+}
+
+func main() {
+	pos, neg := adder(), adder()
+	for i := 0; i < 10; i++ {
+		fmt.Println(
+			pos(i),
+			neg(-2*i),
+		)
+	}
+}
+
+Print:
+0 0
+1 -2
+3 -6
+6 -12
+10 -20
+15 -30
+21 -42
+28 -56
+36 -72
+45 -90
+```
+
+### Methods in GO
+
+Go does not have classes. However, you can define methods on types. A method is a function with a special receiver argument. The receiver appears in its own argument list between the func keyword and the method name. In this example, the Abs method has a receiver of type Vertex named v.
+
+```
+type Vertex struct {
+	X, Y float64
+}
+
+func (v Vertex) Abs() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func main() {
+	v := Vertex{3, 4}
+	fmt.Println(v.Abs())
+}
+```
+
+
+```
+type MyFloat float64
+
+func (f MyFloat) Abs() float64 {
+	if f < 0 {
+		return float64(-f)
+	}
+	return float64(f)
+}
+
+func main() {
+	f := MyFloat(-math.Sqrt2)
+	fmt.Println(f.Abs())
+}
+```
+
+### Pointer receivers
+You can declare methods with pointer receivers.
+
+This means the receiver type has the literal syntax *T for some type T. (Also, T cannot itself be a pointer such as *int.)
+
+For example, the Scale method here is defined on *Vertex.
+
+Methods with pointer receivers can modify the value to which the receiver points (as Scale does here). Since methods often need to modify their receiver, pointer receivers are more common than value receivers.
+
+Try removing the * from the declaration of the Scale function on line 16 and observe how the program's behavior changes.
+
+With a value receiver, the Scale method operates on a copy of the original Vertex value. (This is the same behavior as for any other function argument.) The Scale method must have a pointer receiver to change the Vertex value declared in the main function.
+
+
+```
+type Vertex struct {
+	X, Y float64
+}
+
+func (v Vertex) Abs() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+// if * is removed, value printed is 5 not 50
+func (v *Vertex) Scale(f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+func main() {
+	v := Vertex{3, 4}
+	v.Scale(10)
+	fmt.Println(v.Abs()) // 50
+}
+```
+Another way
+```
+type Vertex struct {
+	X, Y float64
+}
+
+func Abs(v Vertex) float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func Scale(v *Vertex, f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+func main() {
+	v := Vertex{3, 4}
+	Scale(&v, 10)
+	fmt.Println(Abs(v))
+}
+```
+
+
+### Methods and pointer indirection
+Comparing the previous two programs, you might notice that functions with a pointer argument must take a pointer:
+```
+var v Vertex
+ScaleFunc(v, 5)  // Compile error!
+ScaleFunc(&v, 5) // OK
+```
+while methods with pointer receivers take either a value or a pointer as the receiver when they are called:
+```
+var v Vertex
+v.Scale(5)  // OK
+p := &v
+p.Scale(10) // OK
+```
+For the statement v.Scale(5), even though v is a value and not a pointer, the method with the pointer receiver is called automatically. That is, as a convenience, Go interprets the statement v.Scale(5) as (&v).Scale(5) since the Scale method has a pointer receiver.
+
+```
+type Vertex struct {
+	X, Y float64
+}
+
+func (v *Vertex) Scale(f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+func ScaleFunc(v *Vertex, f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+func main() {
+	v := Vertex{3, 4}
+	v.Scale(2)
+	ScaleFunc(&v, 10)
+
+	p := &Vertex{4, 3}
+	p.Scale(3)
+	ScaleFunc(p, 8)
+
+	fmt.Println(v, p)
+}
+```
+
+The equivalent thing happens in the reverse direction.
+
+Functions that take a value argument must take a value of that specific type:
+```
+var v Vertex
+fmt.Println(AbsFunc(v))  // OK
+fmt.Println(AbsFunc(&v)) // Compile error!
+```
+while methods with value receivers take either a value or a pointer as the receiver when they are called:
+```
+var v Vertex
+fmt.Println(v.Abs()) // OK
+p := &v
+fmt.Println(p.Abs()) // OK
+```
+In this case, the method call p.Abs() is interpreted as (*p).Abs().
+
+```
+type Vertex struct {
+	X, Y float64
+}
+
+func (v Vertex) Abs() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func AbsFunc(v Vertex) float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func main() {
+	v := Vertex{3, 4}
+	fmt.Println(v.Abs())
+	fmt.Println(AbsFunc(v))
+
+	p := &Vertex{4, 3}
+	fmt.Println(p.Abs())
+	fmt.Println(AbsFunc(*p))
+}
+```
+
+##### Choosing a value or pointer receiver
+There are two reasons to use a pointer receiver.
+
+The first is so that the method can modify the value that its receiver points to.
+
+The second is to avoid copying the value on each method call. This can be more efficient if the receiver is a large struct, for example.
+
+In this example, both Scale and Abs are with receiver type *Vertex, even though the Abs method needn't modify its receiver.
+
+In general, all methods on a given type should have either value or pointer receivers, but not a mixture of both. (We'll see why over the next few pages.)
+
+
+```
+type Vertex struct {
+	X, Y float64
+}
+
+// This * is needed
+func (v *Vertex) Scale(f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+// This * is not
+func (v *Vertex) Abs() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+func main() {
+	v := &Vertex{3, 4}
+	fmt.Printf("Before scaling: %+v, Abs: %v\n", v, v.Abs())
+	v.Scale(5)
+	fmt.Printf("After scaling: %+v, Abs: %v\n", v, v.Abs())
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
