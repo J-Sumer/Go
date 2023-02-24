@@ -1176,6 +1176,398 @@ func main() {
 }
 ```
 
+### Errors
+
+Functions often return an error value, and calling code should handle errors by testing whether the error equals nil.
+
+```
+i, err := strconv.Atoi("42")
+if err != nil {
+    fmt.Printf("couldn't convert number: %v\n", err)
+    return
+}
+fmt.Println("Converted integer:", i)
+```
+
+
+
+```
+import (
+	"fmt"
+	"time"
+)
+
+type MyError struct {
+	When time.Time
+	What string
+}
+
+func (e *MyError) Error() string {
+	return fmt.Sprintf("at %v, %s",
+		e.When, e.What)
+}
+
+func run() error {
+	return &MyError{
+		time.Now(),
+		"it didn't work",
+	}
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Println(err)
+	}
+}
+```
+
+### Readers in Go
+```
+func main() {
+	r := strings.NewReader("Hello, Readerqqqqqqqqqqqqqqq!")
+
+	b := make([]byte, 8)
+	for {
+		n, err := r.Read(b)
+		fmt.Printf("n = %v err = %v b = %v\n", n, err, b)
+		fmt.Printf("b[:n] = %q\n", b[:n])
+		if err == io.EOF {
+			break
+		}
+	}
+}
+```
+
+### Type parameters
+Go functions can be written to work on multiple types using type parameters. The type parameters of a function appear between brackets, before the function's arguments.
+
+func Index[T comparable](s []T, x T) int
+This declaration means that s is a slice of any type T that fulfills the built-in constraint comparable. x is also a value of the same type.
+
+comparable is a useful constraint that makes it possible to use the == and != operators on values of the type. In this example, we use it to compare a value to all slice elements until a match is found. This Index function works for any type that supports comparison.
+
+
+```
+// Index returns the index of x in s, or -1 if not found.
+func Index[T comparable](s []T, x T) int {
+	for i, v := range s {
+		// v and x are type T, which has the comparable
+		// constraint, so we can use == here.
+		if v == x {
+			return i
+		}
+	}
+	return -1
+}
+
+func main() {
+	// Index works on a slice of ints
+	si := []int{10, 20, 15, -10}
+	fmt.Println(Index(si, 15))
+
+	// Index also works on a slice of strings
+	ss := []string{"foo", "bar", "baz"}
+	fmt.Println(Index(ss, "hello"))
+	fmt.Println(Index(ss, 1))  // This will throw an error
+}
+```
+
+### Generic types
+
+In addition to generic functions, Go also supports generic types. A type can be parameterized with a type parameter, which could be useful for implementing generic data structures.
+
+This example demonstrates a simple type declaration for a singly-linked list holding any type of value.
+
+```
+type List[T any] struct {
+	next *List[T]
+	val  T
+}
+```
+
+# Concurrency
+
+Goroutines
+
+A goroutine is a lightweight thread managed by the Go runtime.
+
+go f(x, y, z)
+starts a new goroutine running
+
+f(x, y, z)
+The evaluation of f, x, y, and z happens in the current goroutine and the execution of f happens in the new goroutine.
+
+Goroutines run in the same address space, so access to shared memory must be synchronized. The sync package provides useful primitives, although you won't need them much in Go as there are other primitives.
+
+```
+func say(s string) {
+	for i := 0; i < 5; i++ {
+		time.Sleep(100 * time.Millisecond)
+		fmt.Println(s)
+	}
+}
+
+func main() {
+	go say("world")
+	say("hello")
+}
+
+world
+hello
+world
+hello
+hello
+world
+world
+hello
+hello
+```
+
+
+### Channels
+
+Channels are a typed conduit through which you can send and receive values with the channel operator, <-.
+```
+ch <- v    // Send v to channel ch.
+v := <-ch  // Receive from ch, and
+           // assign value to v.
+```
+(The data flows in the direction of the arrow.)
+
+Like maps and slices, channels must be created before use:
+
+```ch := make(chan int)```
+
+By default, sends and receives block until the other side is ready. This allows goroutines to synchronize without explicit locks or condition variables.
+
+The example code sums the numbers in a slice, distributing the work between two goroutines. Once both goroutines have completed their computation, it calculates the final result.
+
+```
+func sum(s []int, c chan int) {
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	c <- sum // send sum to c
+}
+
+func main() {
+	s := []int{7, 2, 8, -9, 4, 0}
+
+	c := make(chan int)
+	go sum(s[len(s)/2:], c)
+	go sum(s[:len(s)/2], c)
+	x, y := <-c, <-c // receive from c
+
+	fmt.Println(x, y, x+y) // 17 -5 12
+}
+```
+
+### Buffered Channels
+Channels can be buffered. Provide the buffer length as the second argument to make to initialize a buffered channel:
+
+```ch := make(chan int, 100)```
+
+Sends to a buffered channel block only when the buffer is full. Receives block when the buffer is empty.
+
+Modify the example to overfill the buffer and see what happens.
+
+```
+func main() {
+	ch := make(chan int, 2)
+	ch <- 1
+	ch <- 2
+	fmt.Println(<-ch) // 1
+	fmt.Println(<-ch) // 2
+}
+```
+
+### Range and Close
+
+```
+func fibonacci(n int, c chan int) {
+	x, y := 0, 1
+	for i := 0; i < n; i++ {
+		c <- x
+		time.Sleep(100 * time.Millisecond)
+		x, y = y, x+y
+	}
+	close(c)
+}
+
+func main() {
+	c := make(chan int, 5)
+	go fibonacci(cap(c), c)
+	go fibonacci(cap(c), c)
+	for i := range c {
+		fmt.Println(i)
+	}
+	fmt.Println("DD")
+}
+
+0
+0
+1
+1
+1
+1
+2
+2
+3
+3
+DD
+```
+
+### Select
+The select statement lets a goroutine wait on multiple communication operations.
+
+A select blocks until one of its cases can run, then it executes that case. It chooses one at random if multiple are ready.
+
+```
+func fibonacci(c, quit chan int) {
+	x, y := 0, 1
+	for {
+		select {
+		case c <- x:
+			x, y = y, x+y
+			time.Sleep(100 * time.Millisecond)
+		case <-quit:
+			fmt.Println("quit")
+			return
+		}
+	}
+}
+
+func main() {
+	c := make(chan int)
+	quit := make(chan int)
+	go func() {
+		for i := 0; i < 10; i++ {
+			fmt.Println(<-c)
+		}
+		quit <- 0
+	}()
+	fmt.Println("start")
+	fibonacci(c, quit)
+	fmt.Println("end")
+}
+
+start
+0
+1
+1
+2
+3
+5
+8
+13
+21
+34
+quit
+end
+```
+
+Default
+
+```
+func main() {
+	tick := time.Tick(100 * time.Millisecond)
+	boom := time.After(500 * time.Millisecond)
+	for {
+		select {
+		case <-tick:
+			fmt.Println("tick.")
+		case <-boom:
+			fmt.Println("BOOM!")
+			return
+		default:
+			fmt.Println("    .")
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+}
+
+    .
+    .
+tick.
+    .
+    .
+tick.
+    .
+    .
+    .
+tick.
+    .
+tick.
+    .
+    .
+BOOM!
+
+```
+
+### sync.Mutex
+We've seen how channels are great for communication among goroutines.
+
+But what if we don't need communication? What if we just want to make sure only one goroutine can access a variable at a time to avoid conflicts?
+
+This concept is called mutual exclusion, and the conventional name for the data structure that provides it is mutex.
+
+Go's standard library provides mutual exclusion with sync.Mutex and its two methods:
+
+```Lock```
+```Unlock```
+
+We can define a block of code to be executed in mutual exclusion by surrounding it with a call to Lock and Unlock as shown on the Inc method.
+
+We can also use defer to ensure the mutex will be unlocked as in the Value method.
+
+```
+// SafeCounter is safe to use concurrently.
+type SafeCounter struct {
+	mu sync.Mutex
+	v  map[string]int
+}
+
+// Inc increments the counter for the given key.
+func (c *SafeCounter) Inc(key string) {
+	c.mu.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	c.v[key]++
+	c.mu.Unlock()
+}
+
+// Value returns the current value of the counter for the given key.
+func (c *SafeCounter) Value(key string) int {
+	c.mu.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	defer c.mu.Unlock()
+	return c.v[key]
+}
+
+func main() {
+	c := SafeCounter{v: make(map[string]int)}
+	for i := 0; i < 1000; i++ {
+		go c.Inc("somekey")
+	}
+
+	time.Sleep(time.Second)
+	fmt.Println(c.Value("somekey"))
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
